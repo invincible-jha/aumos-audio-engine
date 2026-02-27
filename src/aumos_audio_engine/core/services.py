@@ -20,6 +20,9 @@ from aumos_audio_engine.api.schemas import (
     StyleTransferRequest,
 )
 from aumos_audio_engine.core.interfaces import (
+    AudioBatchProcessorProtocol,
+    AudioExportHandlerProtocol,
+    AudioQualityEvaluatorProtocol,
     AudioStorageProtocol,
     MNPIDetectorProtocol,
     PrivacyClientProtocol,
@@ -841,6 +844,316 @@ class StyleTransferService:
             )
             await self._job_repo.update(job.id, status=JobStatus.FAILED, error_message=str(exc))
             raise
+
+
+class QualityEvaluationService:
+    """Orchestrates audio quality evaluation for synthesised speech.
+
+    Computes objective quality metrics (MOS estimate, speaker similarity,
+    pitch contour DTW, prosody match, SNR) and stores the results alongside
+    the originating synthesis job. Optionally publishes a quality-report event.
+    """
+
+    def __init__(
+        self,
+        quality_evaluator: AudioQualityEvaluatorProtocol,
+        storage: AudioStorageProtocol,
+        publisher: EventPublisher,
+        job_repository: "AudioJobRepository",
+    ) -> None:
+        """Initialize quality evaluation service.
+
+        Args:
+            quality_evaluator: Audio quality evaluator adapter.
+            storage: Audio file storage adapter (for downloading reference audio).
+            publisher: Kafka event publisher.
+            job_repository: Repository for job persistence.
+        """
+        self._evaluator = quality_evaluator
+        self._storage = storage
+        self._publisher = publisher
+        self._job_repo = job_repository
+
+    async def evaluate_synthesis_job(
+        self,
+        job_id: uuid.UUID,
+        reference_audio: bytes,
+        reference_format: str,
+        tenant_id: str,
+        correlation_id: str,
+    ) -> dict:
+        """Evaluate the quality of a completed synthesis job against a reference.
+
+        Downloads the synthesised audio from the job's output_uri, then computes
+        a full quality report comparing it to the reference. Stores the quality
+        report in the job's input_config for audit purposes.
+
+        Args:
+            job_id: ID of the completed synthesis job to evaluate.
+            reference_audio: Reference audio bytes to compare against.
+            reference_format: Container format of the reference audio.
+            tenant_id: Tenant context for RLS.
+            correlation_id: Distributed tracing ID.
+
+        Returns:
+            Quality report dict with all metric scores and fidelity_score.
+
+        Raises:
+            NotFoundError: If the job does not exist.
+            ValidationError: If the job has no output_uri (not yet completed).
+        """
+        job = await self._job_repo.get_by_id(job_id, tenant_id=tenant_id)
+        if job is None:
+            raise NotFoundError(f"AudioSynthesisJob {job_id} not found")
+
+        if not job.output_uri:
+            raise ValidationError(
+                f"Job {job_id} has no output_uri — evaluation requires a completed job"
+            )
+
+        logger.info(
+            "Quality evaluation started",
+            job_id=str(job_id),
+            tenant_id=tenant_id,
+            output_uri=job.output_uri,
+            correlation_id=correlation_id,
+        )
+
+        # Download synthesised audio from storage
+        synthesised_audio = await self._storage.download(job.output_uri)
+        synthesised_format = job.output_format or "wav"
+
+        # Run quality evaluation
+        quality_report = await self._evaluator.evaluate(
+            synthesised_audio=synthesised_audio,
+            reference_audio=reference_audio,
+            synthesised_format=synthesised_format,
+            reference_format=reference_format,
+        )
+
+        # Persist quality report in job's input_config
+        updated_config = {
+            **job.input_config,
+            "quality_report": quality_report,
+        }
+        await self._job_repo.update(job.id, input_config=updated_config)
+
+        # Publish quality report event
+        await self._publisher.publish(
+            Topics.AUDIO_JOB_LIFECYCLE,
+            {
+                "event_type": "quality_evaluation_completed",
+                "job_id": str(job_id),
+                "tenant_id": tenant_id,
+                "correlation_id": correlation_id,
+                "fidelity_score": quality_report.get("fidelity_score"),
+                "mos_estimate": quality_report.get("mos_estimate"),
+            },
+        )
+
+        logger.info(
+            "Quality evaluation completed",
+            job_id=str(job_id),
+            tenant_id=tenant_id,
+            fidelity_score=quality_report.get("fidelity_score"),
+            mos_estimate=quality_report.get("mos_estimate"),
+        )
+
+        return quality_report
+
+    async def evaluate_standalone(
+        self,
+        audio_bytes: bytes,
+        audio_format: str,
+        tenant_id: str,
+    ) -> dict:
+        """Run standalone quality evaluation with no reference audio.
+
+        Args:
+            audio_bytes: Audio bytes to evaluate.
+            audio_format: Container format.
+            tenant_id: Tenant context (for logging).
+
+        Returns:
+            Standalone quality metrics dict.
+        """
+        logger.info(
+            "Standalone quality evaluation started",
+            tenant_id=tenant_id,
+            audio_format=audio_format,
+        )
+        return await self._evaluator.evaluate_standalone(audio_bytes, audio_format)
+
+
+class BatchSynthesisService:
+    """Orchestrates batch audio synthesis using the distributed batch processor.
+
+    Fans out synthesis requests to the batch processor, monitors progress,
+    aggregates results, and publishes a single batch-completion event when
+    all jobs finish.
+    """
+
+    def __init__(
+        self,
+        tts_engine: TTSEngineProtocol,
+        batch_processor: AudioBatchProcessorProtocol,
+        export_handler: AudioExportHandlerProtocol,
+        publisher: EventPublisher,
+        job_repository: "AudioJobRepository",
+        voice_profile_repository: "VoiceProfileRepository",
+        default_sample_rate: int = 22050,
+    ) -> None:
+        """Initialize batch synthesis service.
+
+        Args:
+            tts_engine: TTS engine for individual synthesis calls.
+            batch_processor: Distributed batch processor for fan-out.
+            export_handler: Export handler for multi-format output and upload.
+            publisher: Kafka event publisher.
+            job_repository: Repository for job persistence.
+            voice_profile_repository: Repository for voice profile lookup.
+            default_sample_rate: Default output sample rate when not specified.
+        """
+        self._tts = tts_engine
+        self._batch = batch_processor
+        self._export = export_handler
+        self._publisher = publisher
+        self._job_repo = job_repository
+        self._voice_repo = voice_profile_repository
+        self._default_sample_rate = default_sample_rate
+
+    async def run_batch(
+        self,
+        request: BatchAudioRequest,
+        tenant_id: str,
+        correlation_id: str,
+    ) -> dict:
+        """Submit all synthesis jobs in a batch request and wait for completion.
+
+        Resolves voice profiles for each sub-request, submits all jobs to the
+        batch processor, waits for results, uploads completed audio to storage,
+        and publishes a batch-complete event.
+
+        Args:
+            request: Batch synthesis request with list of sub-requests.
+            tenant_id: Tenant context.
+            correlation_id: Distributed tracing ID.
+
+        Returns:
+            Dict with 'total', 'completed', 'failed', 'job_ids', 'errors',
+            'results' (list of output URIs), 'duration_seconds'.
+
+        Raises:
+            ValidationError: If fail_fast is True and any individual job fails.
+        """
+        logger.info(
+            "Batch synthesis started",
+            tenant_id=tenant_id,
+            total_jobs=len(request.jobs),
+            fail_fast=request.fail_fast,
+            correlation_id=correlation_id,
+        )
+
+        # Build payload list for the batch processor
+        payloads: list[dict] = []
+        for sub_request in request.jobs:
+            style_config: dict = {}
+            if sub_request.voice_profile_id:
+                profile = await self._voice_repo.get_by_id(
+                    sub_request.voice_profile_id, tenant_id=tenant_id
+                )
+                if profile is not None:
+                    style_config = profile.style_config
+
+            elif sub_request.voice_style_config:
+                style_config = sub_request.voice_style_config
+
+            payloads.append({
+                "text": sub_request.text,
+                "style_config": style_config,
+                "output_format": sub_request.output_format or "wav",
+                "sample_rate": sub_request.sample_rate or self._default_sample_rate,
+                "tenant_id": tenant_id,
+            })
+
+        # Submit all payloads to the batch processor
+        job_ids = await self._batch.submit_batch(
+            items=payloads,
+            handler_key="synthesize",
+            resource_hint="gpu" if getattr(self._tts, "_settings", None) and
+                           getattr(getattr(self._tts, "_settings", None), "gpu_enabled", False)
+                           else "cpu",
+        )
+
+        # Wait for all jobs to reach a terminal state
+        batch_result = await self._batch.wait_for_jobs(
+            job_ids=job_ids,
+            poll_interval_seconds=0.5,
+            timeout_seconds=None,
+        )
+
+        # Upload completed audio results
+        output_uris: list[str] = []
+        upload_errors: list[dict] = []
+
+        for job_status_dict in batch_result.results if hasattr(batch_result, "results") else []:
+            audio_bytes = job_status_dict.get("audio_bytes")
+            audio_format = job_status_dict.get("output_format", "wav")
+            sub_job_id = job_status_dict.get("job_id", str(uuid.uuid4()))
+
+            if audio_bytes:
+                try:
+                    uri = await self._export.upload(
+                        tenant_id=tenant_id,
+                        job_id=sub_job_id,
+                        audio_bytes=audio_bytes if isinstance(audio_bytes, bytes) else bytes(audio_bytes),
+                        audio_format=audio_format,
+                    )
+                    output_uris.append(uri)
+                except Exception as upload_exc:
+                    upload_errors.append({
+                        "job_id": sub_job_id,
+                        "error": str(upload_exc),
+                    })
+
+        result_summary: dict = {
+            "total": len(job_ids),
+            "completed": batch_result.completed if hasattr(batch_result, "completed") else 0,
+            "failed": batch_result.failed if hasattr(batch_result, "failed") else 0,
+            "job_ids": job_ids,
+            "output_uris": output_uris,
+            "errors": (batch_result.errors if hasattr(batch_result, "errors") else []) + upload_errors,
+            "duration_seconds": batch_result.duration_seconds if hasattr(batch_result, "duration_seconds") else 0.0,
+        }
+
+        await self._publisher.publish(
+            Topics.AUDIO_JOB_LIFECYCLE,
+            {
+                "event_type": "batch_synthesis_completed",
+                "tenant_id": tenant_id,
+                "correlation_id": correlation_id,
+                "total": result_summary["total"],
+                "completed": result_summary["completed"],
+                "failed": result_summary["failed"],
+            },
+        )
+
+        logger.info(
+            "Batch synthesis completed",
+            tenant_id=tenant_id,
+            total=result_summary["total"],
+            completed=result_summary["completed"],
+            failed=result_summary["failed"],
+            duration_seconds=result_summary.get("duration_seconds"),
+        )
+
+        if request.fail_fast and result_summary["failed"] > 0:
+            raise ValidationError(
+                f"Batch synthesis had {result_summary['failed']} failure(s) and fail_fast=True. "
+                f"Errors: {result_summary['errors']}"
+            )
+
+        return result_summary
 
 
 # Type aliases for repository references (imported lazily to avoid circular imports)
