@@ -1,0 +1,33 @@
+{
+  "name": "ma_general",
+  "sector": "cross_sector",
+  "version": "1.0.0",
+  "description": "MNPI patterns for general M&A activity applicable across all sectors",
+  "is_system_library": true,
+  "patterns": [
+    {"pattern": "merger (discussion|negotiation|talk|approach|agreement)", "pattern_type": "regex", "risk_level": "high", "description": "Merger discussion or agreement"},
+    {"pattern": "acquisition (bid|offer|approach|target|consideration)", "pattern_type": "regex", "risk_level": "high", "description": "Acquisition activity"},
+    {"pattern": "tender offer", "pattern_type": "keyword", "risk_level": "high", "description": "Tender offer announcement"},
+    {"pattern": "hostile (takeover|bid|approach)", "pattern_type": "regex", "risk_level": "high", "description": "Hostile takeover attempt"},
+    {"pattern": "leveraged buyout", "pattern_type": "keyword", "risk_level": "high", "description": "LBO transaction"},
+    {"pattern": "management buyout", "pattern_type": "keyword", "risk_level": "high", "description": "MBO transaction"},
+    {"pattern": "private equity (interest|offer|approach|bid)", "pattern_type": "regex", "risk_level": "high", "description": "PE firm acquisition interest"},
+    {"pattern": "due diligence (process|underway|commenced|completed)", "pattern_type": "regex", "risk_level": "high", "description": "M&A due diligence process"},
+    {"pattern": "exclusivity (period|agreement|signed)", "pattern_type": "regex", "risk_level": "high", "description": "Exclusivity agreement in M&A"},
+    {"pattern": "letter of intent", "pattern_type": "keyword", "risk_level": "high", "description": "LOI executed for transaction"},
+    {"pattern": "definitive (agreement|merger agreement|purchase agreement)", "pattern_type": "regex", "risk_level": "high", "description": "Definitive agreement signed"},
+    {"pattern": "strategic (review|alternatives|process|sale)", "pattern_type": "regex", "risk_level": "high", "description": "Strategic alternatives process"},
+    {"pattern": "poison pill", "pattern_type": "keyword", "risk_level": "high", "description": "Shareholder rights plan adopted"},
+    {"pattern": "staggered board", "pattern_type": "keyword", "risk_level": "medium", "description": "Anti-takeover defense discussion"},
+    {"pattern": "break.?up (fee|payment)", "pattern_type": "regex", "risk_level": "high", "description": "Break-up fee negotiation"},
+    {"pattern": "go.?shop (provision|period|clause)", "pattern_type": "regex", "risk_level": "high", "description": "Go-shop provision in merger agreement"},
+    {"pattern": "stalking horse", "pattern_type": "keyword", "risk_level": "high", "description": "Stalking horse bid in bankruptcy sale"},
+    {"pattern": "asset (divestiture|sale|carve.?out|spin.?off)", "pattern_type": "regex", "risk_level": "high", "description": "Asset divestiture or spin-off"},
+    {"pattern": "reverse (merger|takeover|triangular)", "pattern_type": "regex", "risk_level": "high", "description": "Reverse merger or takeover"},
+    {"pattern": "SPAC (merger|combination|target|sponsor)", "pattern_type": "regex", "risk_level": "high", "description": "SPAC merger activity"},
+    {"pattern": "controlling stake", "pattern_type": "keyword", "risk_level": "high", "description": "Controlling stake acquisition"},
+    {"pattern": "minority (stake|investment|acquisition)", "pattern_type": "regex", "risk_level": "medium", "description": "Minority stake transaction"},
+    {"pattern": "regulatory (approval|clearance|condition) (for|of) (merger|acquisition|deal)", "pattern_type": "regex", "risk_level": "high", "description": "Regulatory approval for M&A"},
+    {"pattern": "antitrust (clearance|challenge|condition|remedy)", "pattern_type": "regex", "risk_level": "high", "description": "Antitrust review of M&A"}
+  ]
+}

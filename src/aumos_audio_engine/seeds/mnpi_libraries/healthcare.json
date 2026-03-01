@@ -1,0 +1,31 @@
+{
+  "name": "healthcare",
+  "sector": "healthcare",
+  "version": "1.0.0",
+  "description": "MNPI patterns for healthcare sector: hospital systems, payers, medical devices, clinical outcomes",
+  "is_system_library": true,
+  "patterns": [
+    {"pattern": "patient (volume|census|admission|discharge) (data|metric|guidance)", "pattern_type": "regex", "risk_level": "medium", "description": "Patient volume metric disclosure"},
+    {"pattern": "reimbursement (rate|cut|change|reduction)", "pattern_type": "regex", "risk_level": "high", "description": "Reimbursement rate change"},
+    {"pattern": "CMS (ruling|decision|rate|proposal)", "pattern_type": "regex", "risk_level": "high", "description": "CMS regulatory decision"},
+    {"pattern": "Medicare (rate|cut|change|audit)", "pattern_type": "regex", "risk_level": "high", "description": "Medicare rate or audit event"},
+    {"pattern": "Medicaid (rate|cut|expansion|change)", "pattern_type": "regex", "risk_level": "high", "description": "Medicaid policy change"},
+    {"pattern": "device (recall|malfunction|defect|failure)", "pattern_type": "regex", "risk_level": "high", "description": "Medical device recall or failure"},
+    {"pattern": "510\\(k\\) (clearance|approval|rejection|submission)", "pattern_type": "regex", "risk_level": "high", "description": "FDA 510(k) device clearance"},
+    {"pattern": "PMA (approval|rejection|supplement)", "pattern_type": "regex", "risk_level": "high", "description": "FDA premarket approval decision"},
+    {"pattern": "hospital (acquisition|merger|affiliation|closure)", "pattern_type": "regex", "risk_level": "high", "description": "Hospital system consolidation"},
+    {"pattern": "payer (contract|negotiation|termination)", "pattern_type": "regex", "risk_level": "high", "description": "Payer contract event"},
+    {"pattern": "same.?store (volume|revenue|growth)", "pattern_type": "regex", "risk_level": "medium", "description": "Same-store healthcare volume"},
+    {"pattern": "HIPAA (violation|breach|penalty|fine)", "pattern_type": "regex", "risk_level": "high", "description": "HIPAA regulatory action"},
+    {"pattern": "upcoding (investigation|allegation|settlement)", "pattern_type": "regex", "risk_level": "high", "description": "Billing fraud investigation"},
+    {"pattern": "False Claims Act", "pattern_type": "keyword", "risk_level": "high", "description": "False Claims Act case"},
+    {"pattern": "qui tam", "pattern_type": "keyword", "risk_level": "high", "description": "Qui tam whistleblower lawsuit"},
+    {"pattern": "OIG (investigation|audit|exclusion)", "pattern_type": "regex", "risk_level": "high", "description": "OIG enforcement action"},
+    {"pattern": "revenue cycle (disruption|issue|improvement)", "pattern_type": "regex", "risk_level": "medium", "description": "Revenue cycle metric"},
+    {"pattern": "value.?based (contract|arrangement|penalty)", "pattern_type": "regex", "risk_level": "medium", "description": "Value-based care contract"},
+    {"pattern": "prior authorization (change|denial|rate)", "pattern_type": "regex", "risk_level": "medium", "description": "Prior authorization policy change"},
+    {"pattern": "formulary (change|exclusion|inclusion)", "pattern_type": "regex", "risk_level": "medium", "description": "Drug formulary change"},
+    {"pattern": "pharmacy benefit (change|negotiation|rebate)", "pattern_type": "regex", "risk_level": "medium", "description": "PBM contract or rebate event"},
+    {"pattern": "hospital (star rating|quality measure|outcome)", "pattern_type": "regex", "risk_level": "low", "description": "Hospital quality metric disclosure"}
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "real_estate",
+  "sector": "real_estate",
+  "version": "1.0.0",
+  "description": "MNPI patterns for real estate sector: REIT distributions, portfolio transactions, occupancy, cap rates",
+  "is_system_library": true,
+  "patterns": [
+    {"pattern": "occupancy (rate|decline|increase|guidance)", "pattern_type": "regex", "risk_level": "high", "description": "Portfolio occupancy rate change"},
+    {"pattern": "same.?store (NOI|revenue|growth|decline)", "pattern_type": "regex", "risk_level": "high", "description": "Same-store NOI performance"},
+    {"pattern": "cap rate (compression|expansion|change)", "pattern_type": "regex", "risk_level": "medium", "description": "Capitalization rate movement"},
+    {"pattern": "FFO (guidance|revision|miss|beat)", "pattern_type": "regex", "risk_level": "high", "description": "Funds from operations guidance change"},
+    {"pattern": "distribution (cut|suspension|increase|special)", "pattern_type": "regex", "risk_level": "high", "description": "REIT distribution change"},
+    {"pattern": "portfolio (acquisition|disposition|sale|purchase)", "pattern_type": "regex", "risk_level": "high", "description": "Portfolio transaction"},
+    {"pattern": "property (acquisition|disposition|sale|purchase)", "pattern_type": "regex", "risk_level": "high", "description": "Property transaction"},
+    {"pattern": "development (pipeline|delay|cancellation|cost overrun)", "pattern_type": "regex", "risk_level": "medium", "description": "Development project event"},
+    {"pattern": "tenant (default|bankruptcy|departure|anchor)", "pattern_type": "regex", "risk_level": "high", "description": "Major tenant credit event"},
+    {"pattern": "lease (expiration|renewal|termination|anchor)", "pattern_type": "regex", "risk_level": "medium", "description": "Significant lease event"},
+    {"pattern": "debt (maturity|refinancing|covenant|default)", "pattern_type": "regex", "risk_level": "high", "description": "Debt structure event"},
+    {"pattern": "loan.?to.?value (ratio|breach|covenant)", "pattern_type": "regex", "risk_level": "high", "description": "LTV covenant event"},
+    {"pattern": "impairment (charge|write-?down|goodwill)", "pattern_type": "regex", "risk_level": "high", "description": "Asset impairment charge"},
+    {"pattern": "zoning (approval|denial|change|variance)", "pattern_type": "regex", "risk_level": "medium", "description": "Zoning regulatory decision"},
+    {"pattern": "eminent domain", "pattern_type": "keyword", "risk_level": "medium", "description": "Eminent domain proceeding"},
+    {"pattern": "REIT (election|qualification|test|failure)", "pattern_type": "regex", "risk_level": "high", "description": "REIT tax status event"},
+    {"pattern": "environmental (remediation|contamination|liability)", "pattern_type": "regex", "risk_level": "high", "description": "Environmental liability event"},
+    {"pattern": "merger (discussion|negotiation|offer|approach)", "pattern_type": "regex", "risk_level": "high", "description": "REIT M&A activity"},
+    {"pattern": "joint venture (formation|dissolution|acquisition)", "pattern_type": "regex", "risk_level": "medium", "description": "Joint venture transaction"},
+    {"pattern": "net asset value (revision|write-?down|restatement)", "pattern_type": "regex", "risk_level": "high", "description": "NAV revision"}
+  ]
+}

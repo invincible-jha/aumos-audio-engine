@@ -1,0 +1,31 @@
+{
+  "name": "technology",
+  "sector": "technology",
+  "version": "1.0.0",
+  "description": "MNPI patterns for technology sector: product launches, earnings, cybersecurity incidents, M&A",
+  "is_system_library": true,
+  "patterns": [
+    {"pattern": "product (launch|announcement|release|delay)", "pattern_type": "regex", "risk_level": "high", "description": "Major product launch or delay"},
+    {"pattern": "revenue (guidance|revision|warning|shortfall)", "pattern_type": "regex", "risk_level": "high", "description": "Revenue guidance change"},
+    {"pattern": "data breach", "pattern_type": "keyword", "risk_level": "high", "description": "Data breach event"},
+    {"pattern": "cyberattack", "pattern_type": "keyword", "risk_level": "high", "description": "Cyberattack disclosure"},
+    {"pattern": "ransomware (attack|incident|payment)", "pattern_type": "regex", "risk_level": "high", "description": "Ransomware incident"},
+    {"pattern": "zero.?day (vulnerability|exploit)", "pattern_type": "regex", "risk_level": "high", "description": "Zero-day vulnerability disclosure"},
+    {"pattern": "user (growth|churn|retention) (metric|rate|data)", "pattern_type": "regex", "risk_level": "medium", "description": "User metric disclosure"},
+    {"pattern": "monthly active (user|customer)", "pattern_type": "regex", "risk_level": "medium", "description": "MAU/MAC disclosure"},
+    {"pattern": "chip (shortage|supply|production|capacity)", "pattern_type": "regex", "risk_level": "medium", "description": "Semiconductor supply chain event"},
+    {"pattern": "patent (infringement|lawsuit|settlement|license)", "pattern_type": "regex", "risk_level": "high", "description": "Patent litigation event"},
+    {"pattern": "antitrust (investigation|complaint|fine|ruling)", "pattern_type": "regex", "risk_level": "high", "description": "Antitrust regulatory action"},
+    {"pattern": "cloud (outage|incident|disruption)", "pattern_type": "regex", "risk_level": "high", "description": "Major cloud service outage"},
+    {"pattern": "AI (model|system) (launch|release|acquisition)", "pattern_type": "regex", "risk_level": "high", "description": "AI product or acquisition announcement"},
+    {"pattern": "acquisition (approach|offer|bid|target)", "pattern_type": "regex", "risk_level": "high", "description": "M&A activity"},
+    {"pattern": "strategic (partnership|alliance|joint venture)", "pattern_type": "regex", "risk_level": "medium", "description": "Strategic partnership announcement"},
+    {"pattern": "CEO (departure|resignation|firing|stepping down)", "pattern_type": "regex", "risk_level": "high", "description": "Senior executive departure"},
+    {"pattern": "layoff(s)? (announced|planned|confirmed)", "pattern_type": "regex", "risk_level": "medium", "description": "Workforce reduction"},
+    {"pattern": "subscription (growth|churn|cancellation)", "pattern_type": "regex", "risk_level": "medium", "description": "Subscription metric disclosure"},
+    {"pattern": "deferred revenue", "pattern_type": "keyword", "risk_level": "medium", "description": "Deferred revenue metric"},
+    {"pattern": "gross margin (expansion|compression|guidance)", "pattern_type": "regex", "risk_level": "high", "description": "Gross margin guidance"},
+    {"pattern": "regulatory (approval|rejection|inquiry)", "pattern_type": "regex", "risk_level": "high", "description": "Regulatory action"},
+    {"pattern": "GDPR (fine|violation|investigation)", "pattern_type": "regex", "risk_level": "high", "description": "GDPR enforcement action"}
+  ]
+}

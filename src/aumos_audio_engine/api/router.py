@@ -7,9 +7,10 @@ All business logic is delegated to core services. Routes handle only:
 - HTTP response formatting
 """
 
+import json
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aumos_common.auth import TenantContext, get_current_tenant, get_current_user
@@ -25,8 +26,12 @@ from aumos_audio_engine.api.schemas import (
     AudioTranscribeRequest,
     BatchAudioRequest,
     BatchAudioResponse,
+    MNPILibraryCreateRequest,
+    MNPILibraryResponse,
+    MNPIPatternResponse,
     MNPIScanRequest,
     MNPIScanResponse,
+    StreamingSessionResponse,
     StyleTransferRequest,
     VoiceProfileCreateRequest,
     VoiceProfileResponse,
@@ -236,8 +241,6 @@ async def scan_mnpi(
     Returns:
         MNPI scan results with risk level and flagged segments.
     """
-    import json
-
     if not transcript and not audio_file:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -245,7 +248,7 @@ async def scan_mnpi(
         )
 
     try:
-        context = json.loads(context_metadata)
+        context: dict = json.loads(context_metadata)
     except json.JSONDecodeError:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -453,3 +456,236 @@ async def list_voice_profiles(
     profiles = await repo.list_all(tenant_id=str(tenant.tenant_id))
 
     return [VoiceProfileResponse.model_validate(p) for p in profiles]
+
+
+# ─── MNPI Library Management ───────────────────────────────────────────────────
+
+
+@router.get(
+    "/mnpi/libraries",
+    response_model=list[MNPILibraryResponse],
+    summary="List MNPI libraries",
+    description=(
+        "List all MNPI detection libraries available to this tenant, "
+        "including system libraries and tenant-defined libraries."
+    ),
+)
+async def list_mnpi_libraries(
+    tenant: TenantContext = Depends(get_current_tenant),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[MNPILibraryResponse]:
+    """List MNPI libraries available to this tenant.
+
+    Args:
+        tenant: Authenticated tenant context.
+        session: Database session.
+
+    Returns:
+        All MNPI libraries (system + tenant-defined).
+    """
+    from sqlalchemy import or_, select
+
+    from aumos_audio_engine.core.models import MNPILibrary
+
+    result = await session.execute(
+        select(MNPILibrary).where(
+            or_(
+                MNPILibrary.is_system_library == True,  # noqa: E712
+                MNPILibrary.tenant_id == str(tenant.tenant_id),
+            )
+        ).order_by(MNPILibrary.is_system_library.desc(), MNPILibrary.name)
+    )
+    libraries = list(result.scalars().all())
+    return [MNPILibraryResponse.model_validate(lib) for lib in libraries]
+
+
+@router.post(
+    "/mnpi/libraries",
+    response_model=MNPILibraryResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create custom MNPI library",
+    description="Create a tenant-defined MNPI pattern library with initial patterns.",
+)
+async def create_mnpi_library(
+    request: MNPILibraryCreateRequest,
+    tenant: TenantContext = Depends(get_current_tenant),
+    session: AsyncSession = Depends(get_db_session),
+) -> MNPILibraryResponse:
+    """Create a new tenant-defined MNPI library.
+
+    Args:
+        request: Library name, sector, description, and initial patterns.
+        tenant: Authenticated tenant context.
+        session: Database session.
+
+    Returns:
+        Created MNPI library record.
+    """
+    from aumos_audio_engine.core.models import MNPILibrary, MNPIPattern
+
+    library = MNPILibrary(
+        tenant_id=str(tenant.tenant_id),
+        name=request.name,
+        sector=request.sector,
+        description=request.description,
+        pattern_count=len(request.patterns),
+        is_system_library=False,
+    )
+    session.add(library)
+    await session.flush()
+
+    for pattern_data in request.patterns:
+        pattern = MNPIPattern(
+            tenant_id=str(tenant.tenant_id),
+            library_id=library.id,
+            pattern=pattern_data.pattern,
+            pattern_type=pattern_data.pattern_type,
+            risk_level=pattern_data.risk_level,
+            description=pattern_data.description,
+            context_window=pattern_data.context_window,
+            enabled=pattern_data.enabled,
+        )
+        session.add(pattern)
+
+    await session.commit()
+    await session.refresh(library)
+
+    logger.info(
+        "mnpi_library_created",
+        library_id=str(library.id),
+        name=library.name,
+        pattern_count=library.pattern_count,
+        tenant_id=str(tenant.tenant_id),
+    )
+
+    return MNPILibraryResponse.model_validate(library)
+
+
+@router.get(
+    "/mnpi/libraries/{library_id}/patterns",
+    response_model=list[MNPIPatternResponse],
+    summary="List patterns in an MNPI library",
+    description="Retrieve all detection patterns within a specific MNPI library.",
+)
+async def list_mnpi_patterns(
+    library_id: uuid.UUID,
+    tenant: TenantContext = Depends(get_current_tenant),
+    session: AsyncSession = Depends(get_db_session),
+) -> list[MNPIPatternResponse]:
+    """List all patterns in an MNPI library.
+
+    Args:
+        library_id: UUID of the MNPI library.
+        tenant: Authenticated tenant context.
+        session: Database session.
+
+    Returns:
+        All patterns in the library.
+
+    Raises:
+        404: If library does not exist or is not accessible to tenant.
+    """
+    from sqlalchemy import or_, select
+
+    from aumos_audio_engine.core.models import MNPILibrary, MNPIPattern
+
+    library_result = await session.execute(
+        select(MNPILibrary).where(
+            MNPILibrary.id == library_id,
+            or_(
+                MNPILibrary.is_system_library == True,  # noqa: E712
+                MNPILibrary.tenant_id == str(tenant.tenant_id),
+            ),
+        )
+    )
+    library = library_result.scalar_one_or_none()
+    if library is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"MNPI library {library_id} not found",
+        )
+
+    pattern_result = await session.execute(
+        select(MNPIPattern)
+        .where(MNPIPattern.library_id == library_id)
+        .order_by(MNPIPattern.risk_level, MNPIPattern.pattern)
+    )
+    patterns = list(pattern_result.scalars().all())
+    return [MNPIPatternResponse.model_validate(p) for p in patterns]
+
+
+# ─── WebSocket Streaming De-identification ─────────────────────────────────────
+
+
+@router.websocket("/stream/deidentify")
+async def websocket_stream_deidentify(
+    websocket: WebSocket,
+    session_id: uuid.UUID | None = None,
+) -> None:
+    """WebSocket endpoint for real-time streaming speaker de-identification.
+
+    Protocol:
+        1. Client connects with optional session_id query param.
+        2. Server sends {"type": "session_ready", "session_id": "<uuid>"}.
+        3. Client sends binary audio frames (20ms, 16kHz, mono, int16).
+        4. Server echoes each frame as binary de-identified audio.
+        5. Client sends {"type": "end_session"} to close gracefully.
+        6. Server sends {"type": "session_complete", "frames_processed": N}.
+
+    Args:
+        websocket: FastAPI WebSocket connection.
+        session_id: Optional existing session ID for reconnection.
+    """
+    from aumos_audio_engine.adapters.streaming_deidentifier import StreamingDeidentifier
+
+    await websocket.accept()
+
+    effective_session_id = session_id or uuid.uuid4()
+    deidentifier = StreamingDeidentifier()
+    frames_processed = 0
+
+    try:
+        tenant_id = uuid.UUID("00000000-0000-0000-0000-000000000000")
+        await deidentifier.initialize_session(
+            session_id=effective_session_id,
+            tenant_id=tenant_id,
+        )
+
+        await websocket.send_json(
+            {"type": "session_ready", "session_id": str(effective_session_id)}
+        )
+
+        while True:
+            message = await websocket.receive()
+
+            if "bytes" in message and message["bytes"]:
+                frame_bytes = message["bytes"]
+                deidentified_frame = await deidentifier.process_frame(frame_bytes)
+                await websocket.send_bytes(deidentified_frame)
+                frames_processed += 1
+
+            elif "text" in message:
+                control = json.loads(message["text"])
+                if control.get("type") == "end_session":
+                    await websocket.send_json(
+                        {
+                            "type": "session_complete",
+                            "session_id": str(effective_session_id),
+                            "frames_processed": frames_processed,
+                        }
+                    )
+                    break
+
+    except WebSocketDisconnect:
+        logger.info(
+            "ws_stream_disconnected",
+            session_id=str(effective_session_id),
+            frames_processed=frames_processed,
+        )
+    except Exception as exc:
+        logger.error(
+            "ws_stream_error",
+            session_id=str(effective_session_id),
+            error=str(exc),
+        )
+        await websocket.close(code=1011, reason="Internal server error")

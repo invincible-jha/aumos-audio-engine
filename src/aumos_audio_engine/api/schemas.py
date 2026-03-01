@@ -220,3 +220,85 @@ class BatchAudioResponse(BaseModel):
     failed: int
     job_ids: list[uuid.UUID]
     errors: list[dict]
+
+
+# ─── MNPI Library Schemas ──────────────────────────────────────────────────────
+
+
+class MNPIPatternCreate(BaseModel):
+    """Request schema for creating a single MNPI detection pattern."""
+
+    pattern: str = Field(..., min_length=1, max_length=2000, description="Regex or keyword pattern string")
+    pattern_type: str = Field(
+        default="keyword",
+        description="Pattern type: 'keyword' for exact match, 'regex' for regex match",
+        pattern=r"^(keyword|regex)$",
+    )
+    risk_level: str = Field(
+        default="medium",
+        description="Risk level: 'high', 'medium', or 'low'",
+        pattern=r"^(high|medium|low)$",
+    )
+    description: str = Field(default="", max_length=500, description="Human-readable description of what this pattern detects")
+    context_window: int = Field(default=50, ge=10, le=500, description="Token window around match for LLM context")
+    enabled: bool = Field(default=True, description="Whether this pattern is active")
+
+
+class MNPILibraryCreateRequest(BaseModel):
+    """Request body for POST /audio/mnpi/libraries."""
+
+    name: str = Field(..., min_length=1, max_length=255, description="Library name (e.g., 'custom_finserv')")
+    sector: str = Field(..., min_length=1, max_length=100, description="Industry sector this library covers")
+    description: str | None = Field(default=None, max_length=1000)
+    patterns: list[MNPIPatternCreate] = Field(
+        default_factory=list,
+        max_length=500,
+        description="Initial patterns to include in the library",
+    )
+
+
+class MNPIPatternResponse(BaseModel):
+    """Response schema for a single MNPI pattern."""
+
+    id: uuid.UUID
+    library_id: uuid.UUID
+    pattern: str
+    pattern_type: str
+    risk_level: str
+    description: str
+    context_window: int
+    enabled: bool
+    created_at: str
+    updated_at: str
+
+    model_config = {"from_attributes": True}
+
+
+class MNPILibraryResponse(BaseModel):
+    """Response schema for an MNPI detection library."""
+
+    id: uuid.UUID
+    name: str
+    sector: str
+    version: str
+    pattern_count: int
+    is_system_library: bool
+    description: str | None
+    created_at: str
+    updated_at: str
+
+    model_config = {"from_attributes": True}
+
+
+class StreamingSessionResponse(BaseModel):
+    """Response schema for a real-time de-identification streaming session."""
+
+    id: uuid.UUID
+    session_id: uuid.UUID
+    frames_processed: int
+    duration_seconds: float | None
+    avg_processing_ms: float | None
+    deidentification_applied: bool
+    created_at: str
+
+    model_config = {"from_attributes": True}

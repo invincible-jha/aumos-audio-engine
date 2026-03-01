@@ -1,0 +1,29 @@
+{
+  "name": "government_contracts",
+  "sector": "defense_government",
+  "version": "1.0.0",
+  "description": "MNPI patterns for defense and government contracting: awards, protests, classified program disclosures",
+  "is_system_library": true,
+  "patterns": [
+    {"pattern": "contract (award|win|loss|termination|cancellation)", "pattern_type": "regex", "risk_level": "high", "description": "Government contract award or termination"},
+    {"pattern": "IDIQ (award|task order|ceiling|vehicle)", "pattern_type": "regex", "risk_level": "high", "description": "IDIQ contract award"},
+    {"pattern": "sole source (award|justification|contract)", "pattern_type": "regex", "risk_level": "high", "description": "Sole source contract award"},
+    {"pattern": "GAO (protest|decision|sustained|denied)", "pattern_type": "regex", "risk_level": "high", "description": "GAO bid protest outcome"},
+    {"pattern": "bid protest", "pattern_type": "keyword", "risk_level": "high", "description": "Government bid protest filed"},
+    {"pattern": "debarment (notice|proceeding|proposed)", "pattern_type": "regex", "risk_level": "high", "description": "Government contractor debarment"},
+    {"pattern": "suspension (notice|proceeding|proposed)", "pattern_type": "regex", "risk_level": "high", "description": "Government contractor suspension"},
+    {"pattern": "cost overrun (disclosed|identified|reported)", "pattern_type": "regex", "risk_level": "high", "description": "Government contract cost overrun"},
+    {"pattern": "DCAA (audit|finding|disallowance)", "pattern_type": "regex", "risk_level": "high", "description": "DCAA audit finding"},
+    {"pattern": "False Claims Act (investigation|allegation|settlement)", "pattern_type": "regex", "risk_level": "high", "description": "False Claims Act case"},
+    {"pattern": "classified program (disclosure|breach|leak)", "pattern_type": "regex", "risk_level": "high", "description": "Classified program information disclosure"},
+    {"pattern": "ITAR (violation|investigation|penalty)", "pattern_type": "regex", "risk_level": "high", "description": "ITAR export control violation"},
+    {"pattern": "FARA (registration|violation|investigation)", "pattern_type": "regex", "risk_level": "high", "description": "FARA foreign agent registration issue"},
+    {"pattern": "security clearance (revocation|suspension|denial)", "pattern_type": "regex", "risk_level": "high", "description": "Security clearance action"},
+    {"pattern": "DoD (contract|program|budget|cut)", "pattern_type": "regex", "risk_level": "high", "description": "DoD contract or budget event"},
+    {"pattern": "continuing resolution", "pattern_type": "keyword", "risk_level": "medium", "description": "Government budget continuing resolution"},
+    {"pattern": "sequestration (cut|impact|trigger)", "pattern_type": "regex", "risk_level": "medium", "description": "Sequestration budget impact"},
+    {"pattern": "program (cancellation|restructuring|Nunn-McCurdy)", "pattern_type": "regex", "risk_level": "high", "description": "Defense program restructuring"},
+    {"pattern": "undefinitized contract action", "pattern_type": "keyword", "risk_level": "medium", "description": "UCA contract discussion"},
+    {"pattern": "stop work (order|notice|issued)", "pattern_type": "regex", "risk_level": "high", "description": "Stop work order issued"}
+  ]
+}
