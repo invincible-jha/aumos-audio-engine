@@ -8,7 +8,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Enum, Float, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -203,3 +203,168 @@ class VoiceProfile(AumOSModel, TenantMixin):
 
     def __repr__(self) -> str:
         return f"<VoiceProfile id={self.id} name={self.name} synthetic={self.is_synthetic}>"
+
+
+class AudioStreamSession(AumOSModel, TenantMixin):
+    """Tracks a real-time de-identification streaming session.
+
+    Records metrics for WebSocket streaming sessions (frame count,
+    latency, duration) for audit and performance analysis.
+
+    Table: aud_stream_sessions
+    """
+
+    __tablename__ = "aud_stream_sessions"
+
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=False,
+        unique=True,
+        index=True,
+        doc="Unique session identifier used to correlate WebSocket connections",
+    )
+    frames_processed: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        doc="Number of 20ms audio frames processed in this session",
+    )
+    duration_seconds: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        doc="Total session duration in seconds",
+    )
+    avg_processing_ms: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        doc="Average per-frame processing time in milliseconds",
+    )
+    deidentification_applied: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        doc="Whether de-identification was applied to this session",
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<AudioStreamSession id={self.id} "
+            f"session_id={self.session_id} frames={self.frames_processed}>"
+        )
+
+
+class MNPILibrary(AumOSModel, TenantMixin):
+    """A library of MNPI detection patterns for a specific industry sector.
+
+    System libraries (is_system_library=True) are pre-seeded at startup.
+    Tenant-defined libraries can extend or override system patterns.
+
+    Table: aud_mnpi_libraries
+    """
+
+    __tablename__ = "aud_mnpi_libraries"
+
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        index=True,
+        doc="Library name (e.g., 'pharma', 'energy', 'ma_general')",
+    )
+    sector: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+        doc="Industry sector this library covers",
+    )
+    version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="1.0.0",
+        doc="Semantic version of this library",
+    )
+    pattern_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        doc="Number of patterns in this library (denormalized for quick display)",
+    )
+    is_system_library: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        index=True,
+        doc="True if this is a pre-seeded system library (not tenant-created)",
+    )
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        doc="Human-readable description of library scope and coverage",
+    )
+
+    def __repr__(self) -> str:
+        return f"<MNPILibrary id={self.id} name={self.name} sector={self.sector}>"
+
+
+class MNPIPattern(AumOSModel, TenantMixin):
+    """A single MNPI detection pattern within a library.
+
+    Patterns can be regex strings or exact keyword phrases.
+    The risk_level determines alert severity when matched.
+
+    Table: aud_mnpi_patterns
+    """
+
+    __tablename__ = "aud_mnpi_patterns"
+
+    library_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("aud_mnpi_libraries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        doc="Parent MNPI library this pattern belongs to",
+    )
+    pattern: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        doc="Regex pattern or exact keyword for MNPI detection",
+    )
+    pattern_type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="keyword",
+        doc="Pattern type: 'keyword' for exact match, 'regex' for regex match",
+    )
+    context_window: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=50,
+        doc="Token window around match to include in context for LLM review",
+    )
+    risk_level: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="medium",
+        index=True,
+        doc="Risk level: 'high' (immediate alert), 'medium' (review), 'low' (log only)",
+    )
+    description: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="",
+        doc="Human-readable description of what MNPI scenario this pattern detects",
+    )
+    enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        index=True,
+        doc="Whether this pattern is active in detection",
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<MNPIPattern id={self.id} "
+            f"library_id={self.library_id} "
+            f"risk={self.risk_level} "
+            f"pattern={self.pattern[:30]!r}>"
+        )

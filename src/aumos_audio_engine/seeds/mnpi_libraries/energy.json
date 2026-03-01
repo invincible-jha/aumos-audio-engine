@@ -1,0 +1,29 @@
+{
+  "name": "energy",
+  "sector": "energy",
+  "version": "1.0.0",
+  "description": "MNPI patterns for energy sector: production guidance, pipeline incidents, OPEC decisions",
+  "is_system_library": true,
+  "patterns": [
+    {"pattern": "production guidance (raised|lowered|revised|cut)", "pattern_type": "regex", "risk_level": "high", "description": "Production volume guidance change"},
+    {"pattern": "reserve (estimate|revision|write-?down)", "pattern_type": "regex", "risk_level": "high", "description": "Reserve estimate revision"},
+    {"pattern": "pipeline (spill|leak|rupture|incident)", "pattern_type": "regex", "risk_level": "high", "description": "Pipeline safety incident"},
+    {"pattern": "refinery (fire|explosion|outage|shutdown)", "pattern_type": "regex", "risk_level": "high", "description": "Refinery incident"},
+    {"pattern": "OPEC (decision|cut|increase|meeting)", "pattern_type": "regex", "risk_level": "high", "description": "OPEC production decision"},
+    {"pattern": "force majeure", "pattern_type": "keyword", "risk_level": "high", "description": "Force majeure declaration"},
+    {"pattern": "LNG (contract|supply|export|terminal)", "pattern_type": "regex", "risk_level": "medium", "description": "LNG contract or supply event"},
+    {"pattern": "drilling results", "pattern_type": "keyword", "risk_level": "high", "description": "Exploration drilling results"},
+    {"pattern": "FID (decision|approved|delayed)", "pattern_type": "regex", "risk_level": "high", "description": "Final investment decision"},
+    {"pattern": "field (discovery|depletion|shutdown)", "pattern_type": "regex", "risk_level": "high", "description": "Oil/gas field event"},
+    {"pattern": "well (test|results|completion|abandonment)", "pattern_type": "regex", "risk_level": "medium", "description": "Well drilling/completion event"},
+    {"pattern": "environmental (violation|penalty|cleanup)", "pattern_type": "regex", "risk_level": "high", "description": "Environmental regulatory action"},
+    {"pattern": "carbon credit", "pattern_type": "keyword", "risk_level": "medium", "description": "Carbon credit transaction"},
+    {"pattern": "renewable energy (acquisition|PPA|contract)", "pattern_type": "regex", "risk_level": "medium", "description": "Renewable energy deal"},
+    {"pattern": "power purchase agreement", "pattern_type": "keyword", "risk_level": "medium", "description": "PPA execution"},
+    {"pattern": "merger (discussion|negotiation|approach)", "pattern_type": "regex", "risk_level": "high", "description": "M&A discussion"},
+    {"pattern": "dividend (cut|suspension|special)", "pattern_type": "regex", "risk_level": "high", "description": "Dividend change"},
+    {"pattern": "strategic (divestiture|sale|asset sale)", "pattern_type": "regex", "risk_level": "high", "description": "Asset divestiture"},
+    {"pattern": "impairment (charge|write-?down)", "pattern_type": "regex", "risk_level": "high", "description": "Asset impairment charge"},
+    {"pattern": "tariff (imposed|announced|change)", "pattern_type": "regex", "risk_level": "medium", "description": "Trade tariff impact"}
+  ]
+}
